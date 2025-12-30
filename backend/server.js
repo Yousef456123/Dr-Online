@@ -24,7 +24,7 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: config.frontendUrl,
+  origin: [config.frontendUrl, 'http://192.168.220.1:5173'],
   credentials: true,
 }));
 app.use(express.json());

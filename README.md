@@ -280,7 +280,8 @@ EMAIL_PASSWORD=your_app_password
 For detailed documentation, see:
 - [Frontend README](frontend/README.md) - Complete frontend implementation details
 - [Backend README](backend/README.md) - Backend API documentation
-- [Project Report](docs/PROJECT_REPORT.md) - Comprehensive project analysis
+- [Project Report](PROJECT_REPORT.md) - Comprehensive project analysis
+- [Phase 2 README](README_PHASE2.md) - Backend implementation details
 - [Quick Start Guide](QUICK_START.md) - Quick setup instructions
 
 ---
@@ -337,26 +338,27 @@ git pull origin main
 ## 📈 Future Enhancements
 
 ### Short-term
-- Backend API integration with persistent data
-- User authentication and session management
-- Email verification and password reset
-- Form validation improvements
+- Email verification and password reset functionality
+- Enhanced form validation and error handling
+- Real-time notifications system
+- Advanced search and filtering capabilities
+- User dashboard with personalized content
 
 ### Medium-term
-- Advanced search and filtering
-- Real-time notifications
-- User dashboard with personalized content
-- Comment threads and nested replies
+- Comment threads and nested replies in discussions
 - User following/subscription system
+- Advanced analytics and reporting dashboard
+- File upload improvements (cloud storage integration)
+- Rate limiting and API throttling
 
 ### Long-term
 - Video consultation capabilities
-- AI-powered recommendations
-- Mobile native applications
-- Advanced analytics and reporting
-- Multilingual support
-- Progressive Web App (PWA)
+- AI-powered recommendations and insights
+- Mobile native applications (iOS/Android)
+- Multilingual support (i18n)
+- Progressive Web App (PWA) features
 - Appointment scheduling system
+- Telemedicine integration
 
 ---
 

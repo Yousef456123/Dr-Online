@@ -50,3 +50,5 @@ uploads/avatars/*
 .cache/
 temp/
 tmp/
+.vercel
+.env*.local
