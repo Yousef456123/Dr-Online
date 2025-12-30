@@ -332,6 +332,487 @@ The application is designed to work on:
 
 ---
 
+## Backend Overview
+
+### Architecture
+
+The Dr. Online backend is built using **Node.js with Express.js**, following a **REST API architecture** with MongoDB as the primary database. The backend handles authentication, user management, discussions, study updates, and contact requests.
+
+```
+┌────────────────────────────────────────────────┐
+│         Express.js REST API Server            │
+├────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐  ┌──────────────┐ │
+│  │  Routes  │  │Controllers│  │  Middleware  │ │
+│  └──────────┘  └──────────┘  └──────────────┘ │
+│       │            │               │           │
+│       └────────────┴───────────────┘           │
+│         ┌──────────────────────┐              │
+│         │  MongoDB Database    │              │
+│         ├──────────────────────┤              │
+│         │ • Users              │              │
+│         │ • Discussions        │              │
+│         │ • Studies            │              │
+│         │ • Contact Requests   │              │
+│         │ • Moderator Bookings │              │
+│         └──────────────────────┘              │
+└────────────────────────────────────────────────┘
+```
+
+### Backend Project Structure
+
+```
+backend/
+├── config/
+│   ├── database.js       # MongoDB connection configuration
+│   └── env.js            # Environment variables and configuration
+├── controllers/
+│   ├── authController.js      # Authentication logic (register, login)
+│   ├── userController.js      # User profile and management
+│   ├── discussionController.js # Discussion CRUD operations
+│   ├── studyController.js     # Study update management
+│   └── contactController.js   # Contact form submissions
+├── middleware/
+│   ├── auth.js           # JWT authentication and authorization
+│   └── errorHandler.js   # Global error handling
+├── models/
+│   ├── User.js           # User schema and methods
+│   ├── Discussion.js     # Discussion thread schema
+│   ├── Study.js          # Medical study schema
+│   ├── ContactRequest.js # Contact form submissions
+│   └── ModeratorBooking.js # Moderator appointment booking
+├── routes/
+│   ├── authRoutes.js      # Authentication endpoints
+│   ├── userRoutes.js      # User management endpoints
+│   ├── discussionRoutes.js # Discussion forum endpoints
+│   ├── studyRoutes.js     # Study update endpoints
+│   └── contactRoutes.js   # Contact form endpoints
+├── utils/
+│   └── emailService.js   # Email notification service
+├── uploads/
+│   └── avatars/          # User profile avatar storage
+├── package.json
+├── server.js             # Main server entry point
+└── seed.js               # Database seeding script
+```
+
+### Core Technologies
+
+**Node.js & Express.js (v4.18.2)**
+- **Purpose**: Server runtime and web framework
+- **Usage**: Building RESTful API endpoints, handling HTTP requests
+- **Features**: Middleware support, routing, error handling
+
+**MongoDB (via Mongoose v8.0.0)**
+- **Purpose**: NoSQL document database
+- **Usage**: Persistent data storage for users, discussions, studies
+- **Features**: Schema validation, model relationships, query optimization
+
+**JWT Authentication (jsonwebtoken v9.0.2)**
+- **Purpose**: Secure user authentication and authorization
+- **Usage**: Token generation, verification, and user session management
+- **Expiration**: 7 days (configurable)
+
+**Bcryptjs (v2.4.3)**
+- **Purpose**: Password hashing and encryption
+- **Usage**: Secure password storage, password comparison during login
+- **Salt Rounds**: 10
+
+**Multer (v1.4.5-lts.1)**
+- **Purpose**: File upload middleware
+- **Usage**: Handling user avatar uploads, document attachments
+- **Storage**: Local disk storage in `uploads/avatars/` directory
+
+**Express Validator (v7.0.0)**
+- **Purpose**: Request validation and sanitization
+- **Usage**: Validating form inputs, email formats, required fields
+- **Error Handling**: Standardized validation error responses
+
+**Nodemailer (v6.9.7)**
+- **Purpose**: Email service integration
+- **Usage**: Sending contact form replies, verification emails, notifications
+- **Configuration**: SMTP configuration via environment variables
+
+**CORS (v2.8.5)**
+- **Purpose**: Cross-Origin Resource Sharing
+- **Usage**: Allowing frontend requests from different origin
+- **Configuration**: Configurable frontend URL from environment
+
+**dotenv (v16.3.1)**
+- **Purpose**: Environment variable management
+- **Usage**: Loading sensitive configuration from .env file
+- **Security**: Prevents hardcoding of secrets
+
+### Database Models
+
+#### User Model
+Stores user information with role-based access control:
+
+```javascript
+{
+  fullName: String,
+  email: String (unique),
+  password: String (hashed),
+  role: Enum ['patient', 'doctor', 'admin'],
+  specialization: String (for doctors),
+  phoneNumber: String,
+  profileImage: String (avatar path),
+  bio: String (max 500 chars),
+  isVerified: Boolean,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+**Methods:**
+- `matchPassword()`: Compares entered password with hashed password
+- Pre-save hook: Automatically hashes password before saving
+
+#### Discussion Model
+Manages discussion threads and community conversations:
+
+```javascript
+{
+  title: String (required),
+  description: String,
+  category: Enum ['general', 'research', 'questions', 'experiences'],
+  author: ObjectId (ref: User),
+  tags: [String],
+  replies: [{
+    user: ObjectId (ref: User),
+    content: String,
+    createdAt: Date
+  }],
+  views: Number,
+  likes: [ObjectId] (ref: User),
+  status: Enum ['open', 'closed', 'resolved'],
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+#### Study Model
+Stores medical studies and research findings:
+
+```javascript
+{
+  title: String,
+  description: String,
+  condition: String (medical condition),
+  author: ObjectId (ref: User),
+  source: String (journal/research paper source),
+  publicationDate: Date,
+  content: String (full article or summary),
+  tags: [String],
+  attachments: [{
+    filename: String,
+    url: String
+  }],
+  likes: [ObjectId] (ref: User),
+  shares: Number,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+#### ContactRequest Model
+Stores contact form submissions:
+
+```javascript
+{
+  name: String,
+  email: String,
+  subject: String,
+  message: String,
+  status: Enum ['pending', 'reviewed', 'resolved'],
+  createdAt: Date
+}
+```
+
+#### ModeratorBooking Model
+Manages moderator appointments and bookings:
+
+```javascript
+{
+  doctorId: ObjectId (ref: User),
+  patientId: ObjectId (ref: User),
+  bookingDate: Date,
+  timeSlot: String,
+  status: Enum ['pending', 'confirmed', 'completed', 'cancelled'],
+  notes: String,
+  createdAt: Date
+}
+```
+
+### API Endpoints
+
+#### Authentication Routes (`/api/auth`)
+- **POST /register**: User registration (doctor/patient)
+  - Required fields: fullName, email, password, role
+  - File upload: Optional avatar image
+  - Response: JWT token + user data
+
+- **POST /login**: User login
+  - Required fields: email, password
+  - Response: JWT token + user data
+
+- **POST /logout**: User logout
+  - Response: Success message
+
+- **GET /me**: Get current authenticated user
+  - Requires: JWT token
+  - Response: User data
+
+#### User Routes (`/api/users`)
+- **GET /profile/:userId**: Get user profile
+  - Response: User information
+
+- **PUT /profile/:userId**: Update user profile
+  - Requires: JWT token, authorization
+  - Required fields: fullName, bio, specialization (if doctor)
+  - Response: Updated user data
+
+- **PUT /avatar/:userId**: Upload/update profile avatar
+  - Requires: JWT token, file upload
+  - Response: Updated profile image URL
+
+- **GET /doctors**: List all doctors
+  - Query params: specialization, page, limit
+  - Response: Paginated doctor list
+
+#### Discussion Routes (`/api/discussions`)
+- **GET /**: Get all discussions
+  - Query params: category, page, limit, sort
+  - Response: Paginated discussions list
+
+- **GET /:id**: Get single discussion with replies
+  - Response: Discussion details + replies
+
+- **POST /**: Create new discussion
+  - Requires: JWT token
+  - Required fields: title, description, category
+  - Response: Created discussion
+
+- **PUT /:id**: Update discussion
+  - Requires: JWT token, ownership
+  - Response: Updated discussion
+
+- **DELETE /:id**: Delete discussion
+  - Requires: JWT token, ownership
+  - Response: Success message
+
+- **POST /:id/reply**: Add reply to discussion
+  - Requires: JWT token
+  - Required fields: content
+  - Response: Updated discussion with new reply
+
+- **POST /:id/like**: Like a discussion
+  - Requires: JWT token
+  - Response: Updated likes count
+
+#### Study Routes (`/api/studies`)
+- **GET /**: Get all studies
+  - Query params: condition, page, limit
+  - Response: Paginated studies list
+
+- **GET /:id**: Get single study
+  - Response: Study details
+
+- **POST /**: Create new study (doctor only)
+  - Requires: JWT token, doctor role
+  - Required fields: title, description, condition
+  - File upload: Optional research papers
+  - Response: Created study
+
+- **PUT /:id**: Update study
+  - Requires: JWT token, ownership, doctor role
+  - Response: Updated study
+
+- **DELETE /:id**: Delete study
+  - Requires: JWT token, ownership, doctor role
+  - Response: Success message
+
+- **POST /:id/like**: Like a study
+  - Requires: JWT token
+  - Response: Updated likes count
+
+#### Contact Routes (`/api/contact`)
+- **POST /submit**: Submit contact form
+  - Required fields: name, email, subject, message
+  - Response: Confirmation message
+
+- **GET /submissions**: Get all contact submissions (admin only)
+  - Requires: JWT token, admin role
+  - Response: List of contact submissions
+
+- **PUT /:id/status**: Update submission status
+  - Requires: JWT token, admin role
+  - Required fields: status
+  - Response: Updated submission
+
+### Middleware
+
+#### Authentication Middleware (`auth.js`)
+**protect()**: Verifies JWT token for protected routes
+- Extracts token from Authorization header
+- Verifies token signature and expiration
+- Attaches decoded user info to request object
+- Returns 401 if token invalid or expired
+
+**authorize(...roles)**: Role-based access control
+- Checks if user role is in allowed roles list
+- Returns 403 if user not authorized
+- Allows multiple roles per route
+
+#### Error Handler Middleware (`errorHandler.js`)
+- Catches all errors from async route handlers
+- Formats error responses consistently
+- Logs errors for debugging
+- Returns appropriate HTTP status codes
+
+### Authentication Flow
+
+```
+User Registration
+    │
+    ├─→ POST /api/auth/register
+    │
+    ├─→ Validate input (email, password)
+    │
+    ├─→ Check if user exists
+    │
+    ├─→ Hash password with bcrypt
+    │
+    ├─→ Create user in MongoDB
+    │
+    ├─→ Generate JWT token
+    │
+    └─→ Return token + user data
+
+User Login
+    │
+    ├─→ POST /api/auth/login
+    │
+    ├─→ Find user by email
+    │
+    ├─→ Compare password with bcrypt
+    │
+    ├─→ Generate JWT token
+    │
+    └─→ Return token + user data
+
+Protected Route Access
+    │
+    ├─→ Client sends request with Authorization header
+    │   Format: "Bearer <token>"
+    │
+    ├─→ protect middleware validates token
+    │
+    ├─→ authorize middleware checks user role
+    │
+    ├─→ Route handler executes
+    │
+    └─→ Return protected resource
+```
+
+### Configuration
+
+#### Environment Variables (.env)
+```
+# Server Configuration
+PORT=5000
+NODE_ENV=development
+
+# Database
+MONGODB_URI=mongodb://localhost:27017/dr-online
+
+# JWT
+JWT_SECRET=your_jwt_secret_key_here
+JWT_EXPIRE=7d
+
+# Frontend
+FRONTEND_URL=http://localhost:5173
+
+# Email Service
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASSWORD=your_app_password
+```
+
+#### Development Scripts
+```bash
+# Start development server with nodemon (auto-restart)
+npm run dev
+
+# Start production server
+npm start
+
+# Seed database with sample data
+npm run seed
+```
+
+### Key Features Implemented
+
+1. **JWT-Based Authentication**: Secure token-based authentication with expiration
+2. **Role-Based Access Control**: Patient, Doctor, and Admin roles with different permissions
+3. **Password Security**: Bcrypt hashing with salt rounds
+4. **File Upload**: Avatar uploads with multer middleware
+5. **Input Validation**: Express-validator for request validation
+6. **Error Handling**: Centralized error handling middleware
+7. **CORS Support**: Cross-origin requests properly configured
+8. **Email Notifications**: Nodemailer integration for sending emails
+9. **MongoDB Relationships**: Referenced data relationships between collections
+10. **Async/Await**: Modern JavaScript async handling in all controllers
+
+### Backend API Usage Flow
+
+```
+Frontend Application
+    │
+    ├─→ Sends HTTP Request (GET, POST, PUT, DELETE)
+    │
+    ├─→ Express Router matches route
+    │
+    ├─→ Middleware processes request:
+    │   - CORS check
+    │   - JSON parsing
+    │   - Authentication (if protected)
+    │   - Authorization (if role-required)
+    │   - Validation (if needed)
+    │
+    ├─→ Controller handles business logic
+    │
+    ├─→ MongoDB query/operation
+    │
+    ├─→ Response formatted as JSON
+    │
+    └─→ Returns to Frontend (with status code)
+```
+
+### Security Features
+
+1. **JWT Token Validation**: All protected routes verify token authenticity
+2. **Password Hashing**: Passwords never stored in plain text
+3. **CORS Configuration**: Only allows requests from configured frontend URL
+4. **Authorization Checks**: Role-based access to sensitive operations
+5. **Input Validation**: Prevents malformed data from entering database
+6. **Error Sanitization**: Sensitive error details not exposed to client
+7. **Environment Secrets**: Sensitive configuration via environment variables
+8. **Email Verification**: Support for email verification workflow
+
+### Deployment Considerations
+
+- **MongoDB Hosting**: Can be deployed on MongoDB Atlas or self-hosted
+- **Server Hosting**: Can be deployed on Heroku, AWS, DigitalOcean, Render
+- **Environment Setup**: Requires .env file configuration on production server
+- **Database Backup**: Regular MongoDB backups recommended
+- **API Rate Limiting**: Consider adding rate limiting for production
+- **Logging**: Implement logging service for production monitoring
+- **SSL/HTTPS**: Use SSL certificates for production API
+
+---
+
 ## Code Snippets (Key Parts Only)
 
 This section highlights the most important code implementations in the Dr. Online application.
