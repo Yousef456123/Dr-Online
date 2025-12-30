@@ -24,7 +24,14 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: [config.frontendUrl, 'http://192.168.220.1:5173'],
+  origin: [
+    config.frontendUrl,
+    'https://dr-online456.vercel.app',  // Production frontend (Vercel)
+    /\.onrender\.com$/,                  // Render backend URLs
+    /\.railway\.app$/,                   // Railway backend URLs
+    'http://localhost:5173',              // Local development
+    'http://192.168.220.1:5173',         // Network access
+  ],
   credentials: true,
 }));
 app.use(express.json());
